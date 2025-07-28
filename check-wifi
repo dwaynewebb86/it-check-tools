@@ -1,0 +1,3 @@
+#!ps
+#timeout=30000000
+netsh wlan show wlanreport
