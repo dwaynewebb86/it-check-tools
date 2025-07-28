@@ -1,0 +1,3 @@
+#!ps 
+#timeout=30000000
+Get-WinUserLanguageList | ForEach-Object { $lang=$_; $_.InputMethods | ForEach-Object { [PSCustomObject]@{Language=$lang.LanguageTag; Keyboard=$_.ImeFileName} } }
