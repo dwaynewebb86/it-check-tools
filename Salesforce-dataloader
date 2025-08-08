@@ -1,0 +1,95 @@
+# Install OpenJDK 21 using winget
+try {
+    Write-Host "Installing OpenJDK 21..."
+    winget install --id Microsoft.OpenJDK.21 -e --silent
+    Write-Host "OpenJDK 21 installation completed."
+} catch {
+    Write-Error "Failed to install OpenJDK 21: $_"
+    exit 1
+}
+
+# Create temp folder
+try {
+    $null = New-Item -Path c:\temp -ItemType Directory -ErrorAction SilentlyContinue
+    Write-Host "Temp folder created or already exists."
+} catch {
+    Write-Error "Failed to create temp folder: $_"
+    exit 1
+}
+
+##########################
+#  Salesforce Dataloader  
+##########################
+
+# Get latest forcedotcom/dataloader release from GitHub
+try {
+    $repo = "forcedotcom/dataloader"
+    $releasesUrl = "https://api.github.com/repos/$repo/releases"
+    $releases = Invoke-WebRequest $releasesUrl -UseBasicParsing | ConvertFrom-Json
+    $latestTag = $releases[0].tag_name
+    Write-Host "Latest release tag: $latestTag"
+} catch {
+    Write-Error "Failed to fetch release info from GitHub: $_"
+    exit 1
+}
+
+# Find Windows asset
+try {
+    $assets = $releases[0].assets
+    $win_asset = $assets | Where-Object { $_.name -like "dataloader_v*.zip" } | Select-Object -First 1
+    if (-not $win_asset) {
+        throw "Windows asset not found in release."
+    }
+    Write-Host "Found Windows asset: $($win_asset.name)"
+} catch {
+    Write-Error "Failed to locate Windows asset: $_"
+    exit 1
+}
+
+# Download Installer
+try {
+    $downloadPath = "C:\temp\$($win_asset.name)"
+    Invoke-WebRequest -Uri $($win_asset.browser_download_url) -OutFile $downloadPath -UseBasicParsing
+    Write-Host "Downloaded Data Loader to $downloadPath"
+} catch {
+    Write-Error "Failed to download Data Loader: $_"
+    exit 1
+}
+
+# Unzip Data Loader
+try {
+    Expand-Archive -LiteralPath $downloadPath -DestinationPath 'C:\dataloader' -Force
+    Write-Host "Data Loader extracted to C:\dataloader"
+} catch {
+    Write-Error "Failed to extract Data Loader: $_"
+    exit 1
+}
+
+# Create shortcut
+try {
+    $ShortcutFile = "c:\dataloader\Salesforce Dataloader.lnk"
+    $ShortcutTargetPath = "C:\dataloader\dataloader.bat"
+    $ShortcutWorkingDirectory = "C:\dataloader\"
+    $ShortcutIconLocation = "C:\dataloader\dataloader.ico"
+
+    $WScriptShell = New-Object -ComObject WScript.Shell
+    $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
+    $Shortcut.TargetPath = $ShortcutTargetPath
+    $Shortcut.WorkingDirectory = $ShortcutWorkingDirectory
+    $Shortcut.IconLocation = $ShortcutIconLocation
+    $Shortcut.Save()
+    Write-Host "Shortcut created at $ShortcutFile"
+} catch {
+    Write-Error "Failed to create shortcut: $_"
+    exit 1
+}
+
+# Copy shortcut to Desktop and Start Menu
+try {
+    Copy-Item -Force $ShortcutFile -Destination "$env:Public\Desktop\"
+    Copy-Item -Force $ShortcutFile -Destination $([Environment]::GetFolderPath('CommonStartMenu'))
+    Write-Host "Shortcut copied to Desktop and Start Menu."
+} catch {
+    Write-Error "Failed to copy shortcut: $_"
+    exit 1
+}
